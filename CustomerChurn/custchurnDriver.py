@@ -12,8 +12,35 @@ import seaborn as sns
 import warnings
 import argparse
 import sys
+from configparser import ConfigParser
+from Processing import DataProcessing
 
 print('Lord and my God bless this attempt of yours')
 
+####################### Configuration details ###########################
+# The below scripts are to define the configuration details
+
 # Getting the details of the arguments
-print(sys.argv)
+ap =argparse.ArgumentParser()
+ap.add_argument('--configfile',required=True,help='This is the path to the configuration file')
+args = ap.parse_args()
+
+# Getting the paths of the system arguments
+sys_arguments = sys.argv
+default_cfg = ConfigParser()
+# sys_arguments[2] is the path to the configuration file
+default_cfg.read(sys_arguments[2])
+
+# $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ End of Configuration details $$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+### Starting the input data processing step ##############
+
+print('Start the input data processing steps')
+
+dp = DataProcessing()
+# Reading the data from the DataProcessing class
+dataFrame = dp.dataReader(default_cfg)
+
+print(dataFrame.head())
+
+
