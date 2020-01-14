@@ -37,10 +37,11 @@ default_cfg.read(sys_arguments[2])
 
 print('Start the input data processing steps')
 
-dp = DataProcessing()
+dp = DataProcessing(default_cfg)
 # Reading the data from the DataProcessing class
-dataFrame = dp.dataReader(default_cfg)
+dataFrame = dp.dataReader()
 
-print(dataFrame.head())
+id_cols = dp.featSep()
+print(id_cols)
 
 
