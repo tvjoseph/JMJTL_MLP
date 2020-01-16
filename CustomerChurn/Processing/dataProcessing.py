@@ -25,6 +25,12 @@ class DataProcessing:
         churn = self.dataReader()
         # Getting the configuration as a list and then splitting on commas as the json method was giving error
         id_cols = list(self.config.get('featureEng', 'id_cols').split(','))
-
-        return id_cols
+        date_cols = list(self.config.get('featureEng', 'date_cols').split(','))
+        cat_cols = list(self.config.get('featureEng', 'cat_cols').split(','))
+        return id_cols,date_cols,cat_cols
+    def zeroImpute(self,dataFrame):
+        zero_impute = list(self.config.get('imputeStg', 'zero_imp').split(','))
+        # imputing the selected columns with zero where ever they are 'na'
+        dataFrame[zero_impute] = dataFrame[zero_impute].apply(lambda x: x.fillna(0))
+        return dataFrame,zero_impute
 
