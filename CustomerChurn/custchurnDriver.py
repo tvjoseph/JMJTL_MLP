@@ -57,6 +57,24 @@ print("Shape before dropping: ", dataFrame.shape)
 dataFrame = dataFrame.drop(id_cols + date_cols,axis = 1)
 print("Shape after dropping: ", dataFrame.shape)
 
+## Impute missing values with -1 for categorical columns
+
+# Get the custom impute value from the configuration file
+custVal = default_cfg.get('imputeStg', 'custimpVal')
+# Get the data frame after applying custom impute
+dataFrame = dp.custImpute(dataFrame,cat_cols,custVal)
+
+## Dropping columns with values more than certain threshold
+
+# Getting the threshold value from the configuration file
+threshVal = default_cfg.get('featureEng', 'threshVal')
+# Getting the dataframe after dropping along with the list of the dropped columns
+dataFrame,colMap = dp.custDrop(dataFrame,float(threshVal))
+print('data Frame shape after dropping columns',dataFrame.shape)
+
+
+
+
 
 
 
