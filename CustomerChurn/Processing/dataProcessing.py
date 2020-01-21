@@ -8,6 +8,8 @@ This is the file for data preprocessing
 
 import pandas as pd
 import json
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
 
 class DataProcessing:
     def __init__(self,configfile):
@@ -47,4 +49,11 @@ class DataProcessing:
         # Drop those columns from the data frame
         dataFrame = dataFrame.drop(excCols,axis = 1)
         return dataFrame,excCols
+    def autImpute(self,dataFrame):
+        autoImputed = IterativeImputer(max_iter=1).fit_transform(dataFrame)
+
+        return autoImputed
+
+
+
 

@@ -72,6 +72,16 @@ threshVal = default_cfg.get('featureEng', 'threshVal')
 dataFrame,colMap = dp.custDrop(dataFrame,float(threshVal))
 print('data Frame shape after dropping columns',dataFrame.shape)
 
+# Automated imputing using fancyimpute
+
+autoImputed = dp.autImpute(dataFrame)
+
+dataFrame = pd.DataFrame(autoImputed,columns=dataFrame.columns)
+print('data Frame shape after Imputation',dataFrame.shape)
+print(dataFrame.isnull().sum()*100/dataFrame.shape[0])
+
+
+
 
 
 
