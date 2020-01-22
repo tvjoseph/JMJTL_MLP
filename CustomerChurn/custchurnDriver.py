@@ -14,6 +14,7 @@ import argparse
 import sys
 from configparser import ConfigParser
 from Processing import DataProcessing
+from FeatureEng import FeProcess
 
 print('Lord and my God bless this attempt of yours')
 
@@ -72,13 +73,28 @@ threshVal = default_cfg.get('featureEng', 'threshVal')
 dataFrame,colMap = dp.custDrop(dataFrame,float(threshVal))
 print('data Frame shape after dropping columns',dataFrame.shape)
 
-# Automated imputing using fancyimpute
+# Automated imputing
 
 autoImputed = dp.autImpute(dataFrame)
 
 dataFrame = pd.DataFrame(autoImputed,columns=dataFrame.columns)
 print('data Frame shape after Imputation',dataFrame.shape)
-print(dataFrame.isnull().sum()*100/dataFrame.shape[0])
+
+# Process based feature engineering
+
+## Instantiating the Feature engineering process
+
+## Implementing the first feature engineering process which is to filter and keep only high value customers
+dataFrame = FeProcess(dataFrame).process1()
+## Implementing the process2 which is to create target variable 'churn'
+dataFrame = FeProcess(dataFrame).process2()
+
+print('Class balance percentage',dataFrame.churn.value_counts()*100/dataFrame.shape[0])
+
+
+
+
+
 
 
 
