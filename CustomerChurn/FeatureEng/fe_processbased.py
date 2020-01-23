@@ -50,6 +50,84 @@ class FeProcess:
         self.dataFrame = self.dataFrame.drop(['Total_calls_9','Total_data_9'],axis=1)
 
         return self.dataFrame
+    def process3(self):
+        # This process is to compute the difference between 8th month and the average of 6th and 7th months
+
+        self.dataFrame['arpu_diff'] = self.dataFrame.arpu_8 - ((self.dataFrame.arpu_6 + self.dataFrame.arpu_7) / 2)
+
+        self.dataFrame['onnet_mou_diff'] = self.dataFrame.onnet_mou_8 - (
+                    (self.dataFrame.onnet_mou_6 + self.dataFrame.onnet_mou_7) / 2)
+
+        self.dataFrame['offnet_mou_diff'] = self.dataFrame.offnet_mou_8 - (
+                    (self.dataFrame.offnet_mou_6 + self.dataFrame.offnet_mou_7) / 2)
+
+        self.dataFrame['roam_ic_mou_diff'] = self.dataFrame.roam_ic_mou_8 - (
+                    (self.dataFrame.roam_ic_mou_6 + self.dataFrame.roam_ic_mou_7) / 2)
+
+        self.dataFrame['roam_og_mou_diff'] = self.dataFrame.roam_og_mou_8 - (
+                    (self.dataFrame.roam_og_mou_6 + self.dataFrame.roam_og_mou_7) / 2)
+
+        self.dataFrame['loc_og_mou_diff'] = self.dataFrame.loc_og_mou_8 - (
+                    (self.dataFrame.loc_og_mou_6 + self.dataFrame.loc_og_mou_7) / 2)
+
+        self.dataFrame['std_og_mou_diff'] = self.dataFrame.std_og_mou_8 - (
+                    (self.dataFrame.std_og_mou_6 + self.dataFrame.std_og_mou_7) / 2)
+
+        self.dataFrame['isd_og_mou_diff'] = self.dataFrame.isd_og_mou_8 - (
+                    (self.dataFrame.isd_og_mou_6 + self.dataFrame.isd_og_mou_7) / 2)
+
+        self.dataFrame['spl_og_mou_diff'] = self.dataFrame.spl_og_mou_8 - (
+                    (self.dataFrame.spl_og_mou_6 + self.dataFrame.spl_og_mou_7) / 2)
+
+        self.dataFrame['total_og_mou_diff'] = self.dataFrame.total_og_mou_8 - (
+                    (self.dataFrame.total_og_mou_6 + self.dataFrame.total_og_mou_7) / 2)
+
+        self.dataFrame['loc_ic_mou_diff'] = self.dataFrame.loc_ic_mou_8 - (
+                    (self.dataFrame.loc_ic_mou_6 + self.dataFrame.loc_ic_mou_7) / 2)
+
+        self.dataFrame['std_ic_mou_diff'] = self.dataFrame.std_ic_mou_8 - (
+                    (self.dataFrame.std_ic_mou_6 + self.dataFrame.std_ic_mou_7) / 2)
+
+        self.dataFrame['isd_ic_mou_diff'] = self.dataFrame.isd_ic_mou_8 - (
+                    (self.dataFrame.isd_ic_mou_6 + self.dataFrame.isd_ic_mou_7) / 2)
+
+        self.dataFrame['spl_ic_mou_diff'] = self.dataFrame.spl_ic_mou_8 - (
+                    (self.dataFrame.spl_ic_mou_6 + self.dataFrame.spl_ic_mou_7) / 2)
+
+        self.dataFrame['total_ic_mou_diff'] = self.dataFrame.total_ic_mou_8 - (
+                    (self.dataFrame.total_ic_mou_6 + self.dataFrame.total_ic_mou_7) / 2)
+
+        self.dataFrame['total_rech_num_diff'] = self.dataFrame.total_rech_num_8 - (
+                    (self.dataFrame.total_rech_num_6 + self.dataFrame.total_rech_num_7) / 2)
+
+        self.dataFrame['total_rech_amt_diff'] = self.dataFrame.total_rech_amt_8 - (
+                    (self.dataFrame.total_rech_amt_6 + self.dataFrame.total_rech_amt_7) / 2)
+
+        self.dataFrame['max_rech_amt_diff'] = self.dataFrame.max_rech_amt_8 - (
+                    (self.dataFrame.max_rech_amt_6 + self.dataFrame.max_rech_amt_7) / 2)
+
+        self.dataFrame['total_rech_data_diff'] = self.dataFrame.total_rech_data_8 - (
+                    (self.dataFrame.total_rech_data_6 + self.dataFrame.total_rech_data_7) / 2)
+
+        self.dataFrame['max_rech_data_diff'] = self.dataFrame.max_rech_data_8 - (
+                    (self.dataFrame.max_rech_data_6 + self.dataFrame.max_rech_data_7) / 2)
+
+        self.dataFrame['av_rech_amt_data_diff'] = self.dataFrame.av_rech_amt_data_8 - (
+                    (self.dataFrame.av_rech_amt_data_6 + self.dataFrame.av_rech_amt_data_7) / 2)
+
+        self.dataFrame['vol_2g_mb_diff'] = self.dataFrame.vol_2g_mb_8 - (
+                    (self.dataFrame.vol_2g_mb_6 + self.dataFrame.vol_2g_mb_7) / 2)
+
+        self.dataFrame['vol_3g_mb_diff'] = self.dataFrame.vol_3g_mb_8 - (
+                    (self.dataFrame.vol_3g_mb_6 + self.dataFrame.vol_3g_mb_7) / 2)
+
+        # Deleting columns related to 9th month
+
+        self.dataFrame = self.dataFrame.filter(regex='[^9]$', axis=1)
+
+
+        return self.dataFrame
+
 
 
 

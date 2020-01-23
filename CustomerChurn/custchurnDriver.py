@@ -15,6 +15,7 @@ import sys
 from configparser import ConfigParser
 from Processing import DataProcessing
 from FeatureEng import FeProcess
+from EDA import Plotting
 
 print('Lord and my God bless this attempt of yours')
 
@@ -45,6 +46,9 @@ dataFrame = dp.dataReader()
 id_cols,date_cols,cat_cols = dp.featSep()
 # Getting the numeric columns which are the columns other than the above
 num_cols = [column for column in dataFrame.columns if column not in id_cols + date_cols + cat_cols]
+
+# Getting all columns ending with nine
+col_9_names = dataFrame.filter(regex='9$', axis=1).columns
 
 ## Imputing strategy #############
 # In this step we define the type of imputing we have to do for different columns
@@ -88,9 +92,25 @@ print('data Frame shape after Imputation',dataFrame.shape)
 dataFrame = FeProcess(dataFrame).process1()
 ## Implementing the process2 which is to create target variable 'churn'
 dataFrame = FeProcess(dataFrame).process2()
+## Implementing the process3 which is to create new columns by subtracting 8th month with average of 6 & 7
+dataFrame = FeProcess(dataFrame).process3()
+print('Shape of data frame',dataFrame.shape)
 
-print('Class balance percentage',dataFrame.churn.value_counts()*100/dataFrame.shape[0])
+## Updating category and numeric columns after removing the 9th month columns
+cat_cols = [col for col in cat_cols if col not in col_9_names]
+cat_cols.append('churn')
+num_cols = [col for col in dataFrame.columns if col not in cat_cols]
 
+print('Length of category columns',len(cat_cols))
+print('Length of numeric columns',len(num_cols))
+
+## Changing column type for the category and numeric columns
+dataFrame[num_cols] = dataFrame[num_cols].apply(pd.to_numeric)
+dataFrame[cat_cols] = dataFrame[cat_cols].apply(lambda column: column.astype("category"), axis=0)
+
+## Exploratory data analysis
+
+Plotting().univariate(dataFrame.arpu_6)
 
 
 
