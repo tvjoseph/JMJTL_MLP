@@ -13,9 +13,10 @@ import warnings
 import argparse
 import sys
 from configparser import ConfigParser
-from Processing import DataProcessing
+from Processing import DataProcessing , DataCleaning
 from FeatureEng import FeProcess
 from EDA import Plotting
+from Modelling import ModelBuild
 
 print('Lord and my God bless this attempt of yours')
 
@@ -110,7 +111,29 @@ dataFrame[cat_cols] = dataFrame[cat_cols].apply(lambda column: column.astype("ca
 
 ## Exploratory data analysis
 
+# Univariate plotting
 Plotting().univariate(dataFrame.arpu_6)
+# Bivariate plotting
+Plotting().bivariate(dataFrame.churn,dataFrame.aon)
+
+## Data Cleaning
+
+# Outlier clipping on numerical columns
+
+dataFrame[num_cols] = dataFrame[num_cols].apply(lambda array: DataCleaning(array).outlierClipping(0.03))
+
+## Model building steps
+
+X_train,X_test,y_train,y_test = ModelBuild(dataFrame,default_cfg).dataCreation()
+
+print(X_train.shape,X_test.shape,y_train.shape,y_test.shape)
+
+y_train.head()
+
+
+
+
+
 
 
 
