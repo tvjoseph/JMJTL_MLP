@@ -130,6 +130,8 @@ print(X_train.shape,X_test.shape,y_train.shape,y_test.shape)
 
 y_train.head()
 
+## The next process
+
 
 
 
