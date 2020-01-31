@@ -126,6 +126,7 @@ dataFrame[num_cols] = dataFrame[num_cols].apply(lambda array: DataCleaning(array
 
 X_train,X_test,y_train,y_test = ModelBuild(dataFrame,default_cfg).dataCreation()
 
+
 print(X_train.shape,X_test.shape,y_train.shape,y_test.shape)
 
 y_train.head()
