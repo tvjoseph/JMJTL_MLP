@@ -62,7 +62,6 @@ dataFrame,zero_impute = dp.zeroImpute(dataFrame)
 print("Shape before dropping: ", dataFrame.shape)
 dataFrame = dataFrame.drop(id_cols + date_cols,axis = 1)
 print("Shape after dropping: ", dataFrame.shape)
-
 ## Impute missing values with -1 for categorical columns
 
 # Get the custom impute value from the configuration file
@@ -84,6 +83,8 @@ autoImputed = dp.autImpute(dataFrame)
 
 dataFrame = pd.DataFrame(autoImputed,columns=dataFrame.columns)
 print('data Frame shape after Imputation',dataFrame.shape)
+
+
 
 # Process based feature engineering
 
@@ -126,12 +127,9 @@ dataFrame[num_cols] = dataFrame[num_cols].apply(lambda array: DataCleaning(array
 
 X_train,X_test,y_train,y_test = ModelBuild(dataFrame,default_cfg).dataCreation()
 
-
 print(X_train.shape,X_test.shape,y_train.shape,y_test.shape)
 
-y_train.head()
-
-## The next process
+##
 
 
 
