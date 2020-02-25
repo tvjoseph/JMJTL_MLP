@@ -16,7 +16,7 @@ from configparser import ConfigParser
 from Processing import DataProcessing , DataCleaning
 from FeatureEng import FeProcess
 from EDA import Plotting
-from Modelling import ModelBuild
+from Modelling import ModelBuild,Modelling
 
 print('Lord and my God bless this attempt of yours')
 
@@ -127,9 +127,17 @@ dataFrame[num_cols] = dataFrame[num_cols].apply(lambda array: DataCleaning(array
 
 X_train,X_test,y_train,y_test = ModelBuild(dataFrame,default_cfg).dataCreation()
 
+# Spot checking with multiple models
+
 print(X_train.shape,X_test.shape,y_train.shape,y_test.shape)
 
-##
+## Spot checking different models using pipelines
+
+modelling = Modelling(X_train,X_test,y_train,y_test,default_cfg)
+
+score,Classifier = modelling.spotChecking()
+
+print(score,Classifier)
 
 
 
