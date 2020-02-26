@@ -5,6 +5,9 @@ This is the script for models
 Lord bless this attempt of yours
 '''
 from sklearn.pipeline import Pipeline
+import pickle
+from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import classification_report
 
 class Modelling():
     def __init__(self,xtrain,xtest,ytrain,ytest,configfile):
@@ -50,7 +53,51 @@ class Modelling():
             if mScore > modelScore:
                 modelScore = mScore
                 classSelect = classifier
-        return modelScore,classSelect
+        # Saving the final classifier
+        savedPath = self.config.get('modelling', 'savePath')
+        filename = savedPath + '/' + 'spotmodel.sav'
+        pickle.dump(classSelect, open(filename, 'wb'))
+        return modelScore,classSelect,filename
+
+    def makeEstimator(self,param_grid,Classifier):
+        pipe = Pipeline(steps=[('classifier', Classifier)])
+        # Fitting the grid search
+        estimator = GridSearchCV(pipe, cv=10, param_grid=param_grid)
+        # Fitting on the training set
+        estimator.fit(self.xtrain,self.ytrain)
+        # Printing the
+        print("Best: %f using %s" % (estimator.best_score_,estimator.best_params_))
+        # Predicting with the best estimator
+        pred = estimator.predict(self.xtest)
+        # Getting the Classification report
+        classReport = classification_report(pred,self.ytest)
+        return pred,classReport
+
+
+
+    # This is the function for fine tuning models
+
+    def getModel(self):
+        modelScore, Classifier,filename = self.spotChecking()
+        # Getting the name of the model
+        model_name = type(Classifier).__name__
+        if model_name == 'RandomForestClassifier':
+            print('Fine tuning Random forest classifier')
+            param_grid = self.config.get('fineTuning', 'RFC')
+            pred,classReport = self.makeEstimator(param_grid,Classifier)
+            print(classReport)
+            return pred,classReport
+        elif model_name == 'LogisticRegression':
+            print('Fine tuning Logistic Regression classifier')
+            param_grid = self.config.get('fineTuning', 'LR')
+            pred,classReport = self.makeEstimator(param_grid,Classifier)
+            print(classReport)
+            return pred,classReport
+
+
+
+
+
 
 
 

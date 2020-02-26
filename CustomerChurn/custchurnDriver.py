@@ -135,9 +135,15 @@ print(X_train.shape,X_test.shape,y_train.shape,y_test.shape)
 
 modelling = Modelling(X_train,X_test,y_train,y_test,default_cfg)
 
-score,Classifier = modelling.spotChecking()
+score,Classifier,filename = modelling.spotChecking()
 
 print(score,Classifier)
+
+# Getting the final model after fine tuning
+
+pred,classReport = modelling.getModel()
+
+print(classReport)
 
 
 
