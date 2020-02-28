@@ -83,13 +83,13 @@ class Modelling():
         model_name = type(Classifier).__name__
         if model_name == 'RandomForestClassifier':
             print('Fine tuning Random forest classifier')
-            param_grid = self.config.get('fineTuning', 'RFC')
+            param_grid = {"classifier__class_weight": ['balanced','balanced_subsample'],"classifier__n_estimators": [50, 100,200]}
             pred,classReport = self.makeEstimator(param_grid,Classifier)
             print(classReport)
             return pred,classReport
         elif model_name == 'LogisticRegression':
             print('Fine tuning Logistic Regression classifier')
-            param_grid = self.config.get('fineTuning', 'LR')
+            param_grid = {'classifier__penalty' : ['l1', 'l2'],'classifier__C' : [1,3, 5],'classifier__solver' : ['liblinear']}
             pred,classReport = self.makeEstimator(param_grid,Classifier)
             print(classReport)
             return pred,classReport
