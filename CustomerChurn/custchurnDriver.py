@@ -145,6 +145,8 @@ pred,classReport = modelling.getModel()
 
 print(classReport)
 
+# This is the end of the exercise
+
 
 
 
