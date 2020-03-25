@@ -1,0 +1,1454 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+JMJPFU
+28-Feb-2020
+This is the notebook for exploratory data analysis for the Curn project. Lord bless this attempt of yours
+
+# Let us look the first user record
+```{r}
+# Renaming the data frame
+assign('churnData' ,`telecom_churn_data.(1)`)
+```
+
+
+
+```{r}
+churnData[1:10,]
+```
+
+
+Let us look at the different columns and pick some of them for verification
+
+```{r}
+names(churnData)
+```
+
+# Find the columns with null values
+
+```{r}
+naData = data.frame(colSums(is.na(churnData)))
+naData$percentage = (naData$colSums.is.na.churnData../nrow(churnData))*100
+colnames(naData)[1] = c('NAs')
+naData
+
+```
+
+# Derive summary statistics of various columns
+
+```{r}
+summary(churnData)
+```
+
+Let us find some columns where the column sums are zero. These columns have to be eliminated. To do that let us find those numeric columns
+
+```{r}
+library(dplyr)
+numCols = churnData %>% select_if(is.numeric) %>% colnames()
+
+numChurn = churnData[,numCols]
+head(numChurn)
+```
+
+Now let us find those columns whose sums equal 0 and then find those column names
+
+```{r}
+#zeroCols = numChurn %>% colSums(na.rm = TRUE) %>% data.frame() %>% colnames('sum')
+#zeroCols
+
+zeroCols = colnames(numChurn[colSums(numChurn,na.rm = TRUE) == 0])
+
+summary(numChurn[,zeroCols])
+```
+
+Lets eliminate these columns from the data set
+
+```{r}
+dim(numChurn)
+# Removing the zero sum columns
+numChurn <- numChurn %>% select(-c(zeroCols))
+
+dim(numChurn)
+
+```
+```{r}
+head(numChurn)
+summary(numChurn)
+```
+
+Let us look at duplicates in the mobile number column 
+
+```{r}
+length(unique(numChurn$circle_id))
+```
+
+
+Let us now create the target variable which is the indicator for churn.
+
+```{r}
+# Consolidating the calls data for sept month
+numChurn$SepCalls <- numChurn$total_ic_mou_9 + numChurn$total_og_mou_9
+
+head(numChurn,n=10)
+```
+
+```{r}
+# Consolidating the internet data for Sept month
+numChurn$SepInternet <- numChurn$vol_2g_mb_9 + numChurn$vol_3g_mb_9
+
+```
+
+The customers who have no call and internet data in the Sept month would be the ones who have churned
+
+```{r}
+# First initialise all records to 0
+numChurn$target <- 0
+
+# Those rows where the calls and internet are zero is the churn data
+
+numChurn[numChurn$SepCalls == 0 & numChurn$SepInternet == 0,'target'] <- 1
+
+numChurn[0:50,203:206]
+```
+
+### Taking some variables and visualizing some trends with respect to Churn
+
+Proposition 1 : Let us take the revenue per month for three months and take its standard deviation and then see if there are any trends coming up
+
+```{r}
+# take a sample of only the required variables
+churnSamp1 <- numChurn %>% select(mobile_number,arpu_6,arpu_7,arpu_8,target)
+
+# let us create a new sample to take only the ARPu figures to take row wise standard deviation
+
+churnSamp2 <- churnSamp1 %>% select(arpu_6,arpu_7,arpu_8)
+
+# Scaling the data
+
+library(caret)
+
+pp = preProcess(churnSamp2,method = 'scale')
+churnSamp2_tran = predict(pp,churnSamp2)
+
+
+
+```
+
+```{r}
+churnSamp2_tran <- transform(churnSamp2_tran,SD = apply(churnSamp2_tran,1,sd,na.rm = TRUE))
+
+churnSamp2_tran
+
+```
+
+Let us add the mobile numbers to the data set and do some visuali
+
+
+```{r}
+churnSamp2_tran$mobile <- churnData$mobile_number
+churnSamp2_tran$target <- numChurn$target
+head(churnSamp2_tran)
+```
+
+
+Let us plot the standard deviation of the revenue and find some bins
+
+
+
+
+
+```{r}
+library(ggplot2)
+
+churnSamp2_tran %>% ggplot(aes(mobile,SD)) + geom_point()
+
+```
+
+# The next task is to find the relationship between revenue and the possibility of churn. 
+
+Hypothesis 1. 
+Too much flux in the revenue can indicate propensity to churn
+
+Let us look at cases where the standard deviation is above 5
+
+```{r}
+churnSamp2_tran %>% filter(SD > 5) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(Mn = mean(Per,na.rm = TRUE))
+
+
+
+```
+The number of customers who are likely to churn in the high sd range is almost 3 times the normal zone
+
+Let us now look at the distribution of the sD
+
+
+```{r}
+churnSamp2_tran %>% ggplot(aes(x= SD)) + geom_density()
+
+# Mapping the quantile values also
+quantile(churnSamp2_tran$SD, c(.05, .15,.25,.5,.6,.75,.85, .98))
+
+```
+Let us plot some tables based on these bins and see the % of customers within these bins
+
+```{r}
+churnSamp2_tran %>% filter(SD < 0.05709328 ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_tran %>% filter(SD >= 0.05709328 & SD < 0.10041949  ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_tran %>% filter(SD >= 0.10041949 & SD < 0.13878567   ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_tran %>% filter(SD >= 0.13878567  & SD < 0.25155975   ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_tran %>% filter(SD >= 0.25155975  & SD < 0.31318986   ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_tran %>% filter(SD >= 0.31318986  & SD < 0.44807817   ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_tran %>% filter(SD >= 0.44807817  & SD < 0.61230192   ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_tran %>% filter(SD >= 0.61230192  & SD < 1.43997168    ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_tran %>% filter(SD >= 1.43997168) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(Mn = mean(Per,na.rm = TRUE),NUm = n())
+
+```
+
+# Feature Engineering 1 : 
+
+Creating the standard deviation of the arpu accross months 6 to 8 seems to be a good indicator
+
+```{r}
+head(numChurn)
+```
+
+## Hypothesis 2:
+
+Let us look at the on network mou. My hypothesis is there shouldnt be any change in the on network mou as to whether a customer is churning or not
+
+```{r}
+# take a sample of only the required variables
+churnSamp1_hyp2 <- numChurn %>% select(mobile_number,offnet_mou_6,offnet_mou_7,offnet_mou_8,target)
+
+# let us create a new sample to take only the ARPu figures to take row wise standard deviation
+
+churnSamp2_hyp2 <- churnSamp1_hyp2 %>% select(offnet_mou_6,offnet_mou_7,offnet_mou_8)
+
+churnSamp2_hyp2[is.na(churnSamp2_hyp2)] <- 0
+
+# Scaling the data
+
+library(caret)
+
+pp = preProcess(churnSamp2_hyp2,method = 'scale')
+churnSamp2_hyp2 = predict(pp,churnSamp2_hyp2)
+churnSamp2_hyp2
+
+```
+
+```{r}
+churnSamp2_hyp2 <- transform(churnSamp2_hyp2,SD = apply(churnSamp2_hyp2,1,sd,na.rm = TRUE))
+
+churnSamp2_hyp2$mobile <- churnData$mobile_number
+churnSamp2_hyp2$target <- numChurn$target
+head(churnSamp2_hyp2)
+```
+
+```{r}
+# Mapping the quantile values also
+quantile(churnSamp2_hyp2$SD, c(.05, .15,.25,.5,.6,.75,.85, .95,.99))
+```
+
+```{r}
+churnSamp2_hyp2 %>% filter(SD < 0.0007897178  ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_hyp2 %>% filter(SD >= 0.0007897178  & SD < 0.0099430038   ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_hyp2 %>% filter(SD >= 0.0099430038  & SD < 0.0207226499    ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_hyp2 %>% filter(SD >= 0.0207226499   & SD < 0.0641469656    ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_hyp2 %>% filter(SD >= 0.0641469656 & SD < 0.0966209515    ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_hyp2 %>% filter(SD >= 0.0966209515   & SD < 0.1959115512    ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_hyp2 %>% filter(SD >= 0.1959115512   & SD < 0.3696960453    ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_hyp2 %>% filter(SD >= 0.3696960453   & SD < 1.0014883183     ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_hyp2 %>% filter(SD >= 1.0014883183   & SD < 2.3819037846      ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+churnSamp2_hyp2 %>% filter(SD >= 2.3819037846 ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(Mn = mean(Per,na.rm = TRUE),NUm = n())
+```
+
+The behaviour with respect to network usage is found to be opposite of the behaviour which was found for average revenue.
+
+Both the onnet and offnet usage behaviour has a parabolic relationship with churn.
+
+### Let us look for other relationships
+
+```{r}
+churnData[1:10,]
+```
+
+Let u slook at roaming incoming and roaming outgoing relationships
+
+Creating a function to do the job
+```{r}
+
+
+
+scalerFun <- function(var1,var2,var3){
+  
+ # take a sample of only the required variables
+churnSamp1_hyp2 <- numChurn %>% select(mobile_number,var1,var2,var3)
+
+# let us create a new sample to take only the ARPu figures to take row wise standard deviation
+
+churnSamp2_hyp2 <- churnSamp1_hyp2 %>% select(var1,var2,var3)
+
+churnSamp2_hyp2[is.na(churnSamp2_hyp2)] <- 0
+
+# Scaling the data
+
+pp = preProcess(churnSamp2_hyp2,method = 'scale')
+churnSamp2_hyp2 = predict(pp,churnSamp2_hyp2)
+
+churnSamp2_hyp2 <- transform(churnSamp2_hyp2,SD = apply(churnSamp2_hyp2,1,sd,na.rm = TRUE))
+
+churnSamp2_hyp2$mobile <- churnData$mobile_number
+churnSamp2_hyp2$target <- numChurn$target
+churnSamp2_hyp2
+
+
+# Quantile mapping
+
+quantvals <- quantile(churnSamp2_hyp2$SD, c(.05, .15,.25,.5,.6,.75,.85, .95,.99),na.rm = TRUE)
+
+val1 <- churnSamp2_hyp2 %>% filter(SD < quantvals[1]  ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+val2 <-churnSamp2_hyp2 %>% filter(SD >= quantvals[1]  & SD < quantvals[2]   ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+val3 <- churnSamp2_hyp2 %>% filter(SD >= quantvals[2]  & SD < quantvals[3]   ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+val4 <-churnSamp2_hyp2 %>% filter(SD >= quantvals[3]   & SD < quantvals[4]   ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+val5 <-churnSamp2_hyp2 %>% filter(SD >= quantvals[4] & SD < quantvals[5]    ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+val6 <-churnSamp2_hyp2 %>% filter(SD >= quantvals[5]   & SD < quantvals[6]    ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+val7 <-churnSamp2_hyp2 %>% filter(SD >= quantvals[6]   & SD < quantvals[7]    ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+val8 <-churnSamp2_hyp2 %>% filter(SD >= quantvals[7]   & SD < quantvals[8]    ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+val9 <-churnSamp2_hyp2 %>% filter(SD >= quantvals[8]   & SD < quantvals[9]      ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+val10 <-churnSamp2_hyp2 %>% filter(SD >= quantvals[9] ) %>% mutate(Per = sum(target)/n()) %>% select(Per) %>% summarise(NUm = n(),Mn = mean(Per,na.rm = TRUE))
+
+l1 = list(df1=churnSamp2_hyp2,val1=val1,val2=val2,val3=val3,val4=val4,val5=val5,val6=val6,val7=val7,val8=val8,val9=val9,val10=val10)
+
+l1  
+
+}
+
+
+```
+
+Running the function for roaming values
+
+```{r}
+roamSamp <- scalerFun('roam_ic_mou_6','roam_ic_mou_7','roam_ic_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+
+
+```
+
+
+## Result : Roaming. 
+Roaming also is found to have the same behaviour as the other variables. The highest quantile values shows the maximum propensity to churn.
+
+## Roaming Outgoing
+
+```{r}
+# make an empty data frame 
+
+churnFeat1 <- data.frame(matrix( nrow = 99999, ncol = 0))
+
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD')
+
+head(churnFeat1)
+
+```
+
+
+
+
+```{r}
+
+roamSamp <- scalerFun('roam_og_mou_6','roam_og_mou_7','roam_og_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD')
+
+head(churnFeat1)
+
+```
+
+## Location outgoing same telecom provider
+
+```{r}
+roamSamp <- scalerFun('loc_og_t2t_mou_6','loc_og_t2t_mou_7','loc_og_t2t_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD')
+
+head(churnFeat1)
+
+```
+
+Local calls within the same network within the network of the same telecom operator shows a reverse trend where low flex zone has higher probability of finding churn cases.
+
+## Local calls from operator to mobile of other operator
+
+
+```{r}
+roamSamp <- scalerFun('loc_og_t2m_mou_6','loc_og_t2m_mou_7','loc_og_t2m_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD')
+
+head(churnFeat1)
+```
+
+The proportion of the churn cases are more in the lower ranges of standard deviation
+
+## Operator to fixed lines of the operator, outgoing
+
+```{r}
+roamSamp <- scalerFun('loc_og_t2f_mou_6','loc_og_t2f_mou_7','loc_og_t2f_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD')
+
+head(churnFeat1)
+
+```
+
+Not much information in this feature.
+
+## Operator to its own call centre
+Do calls to ones call centre indicate a propensity for churn ?
+
+```{r}
+roamSamp <- scalerFun('loc_og_t2c_mou_6','loc_og_t2c_mou_7','loc_og_t2c_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD')
+
+head(churnFeat1)
+
+```
+Not much information in this data point. 
+
+## Local outgoing
+
+```{r}
+roamSamp <- scalerFun('loc_og_mou_6','loc_og_mou_7','loc_og_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD')
+
+head(churnFeat1)
+
+```
+
+
+Lower range of this has around 40% of churn cases.
+
+## STD outgoing inter operator calls.
+
+```{r}
+roamSamp <- scalerFun('std_og_t2t_mou_6','std_og_t2t_mou_7','std_og_t2t_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD')
+
+head(churnFeat1)
+
+```
+
+
+The higher end of the spectrum shows the highest propensity to churn.Top three bands of the standard deviation has the highest propensity.
+
+## STD outgoing Operator to another operator mobile.
+
+```{r}
+roamSamp <- scalerFun('std_og_t2m_mou_6','std_og_t2m_mou_7','std_og_t2m_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD')
+
+head(churnFeat1)
+
+```
+
+The top end of the spectrum has the heighest propensity of churn.
+
+## STD outgoing from same operator to fixed line
+
+```{r}
+roamSamp <- scalerFun('std_og_t2f_mou_6','std_og_t2f_mou_7','std_og_t2f_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD')
+
+head(churnFeat1)
+
+```
+
+As expected the flux in fixed lines dosent present any meaningful indicator at all.
+
+## STD outgoing consolidated
+
+```{r}
+roamSamp <- scalerFun('std_og_mou_6','std_og_mou_7','std_og_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD')
+
+head(churnFeat1)
+
+```
+
+There is a mild parabolic representation with the top standard deviation values having the higher probability of churn propensity.
+
+## ISD outgoing
+
+```{r}
+
+roamSamp <- scalerFun('isd_og_mou_6','isd_og_mou_7','isd_og_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD')
+
+head(churnFeat1)
+
+```
+
+The highest band has the greatest probability of finding churn.
+
+## Special outgoing calls
+
+```{r}
+roamSamp <- scalerFun('spl_og_mou_6','spl_og_mou_7','spl_og_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD')
+
+head(churnFeat1)
+
+```
+
+
+Not much difference in this segment.
+
+## outgoing others
+
+```{r}
+roamSamp <- scalerFun('og_others_6','og_others_7','og_others_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD')
+
+head(churnFeat1)
+```
+
+The top one has the most propensity. However not much to talk about.
+
+## Consolidate outgoing trend
+
+```{r}
+roamSamp <- scalerFun('total_og_mou_6','total_og_mou_7','total_og_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD')
+
+head(churnFeat1)
+
+```
+
+There is a parabolic relationsip. With some of the highest representation at the bottom end of the std range. The top also showing some propensity for the same. The bottom end must be heavily influenced by some of the 40% range features.
+
+## Local incoming calls within the same telecom network
+
+```{r}
+roamSamp <- scalerFun('loc_ic_t2t_mou_6','loc_ic_t2t_mou_7','loc_ic_t2t_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD')
+
+head(churnFeat1)
+
+```
+The bottom 15000 cases has the highest propensity for churn 24%
+
+## Local incoming operator to different mobile network
+
+```{r}
+roamSamp <- scalerFun('loc_ic_t2m_mou_6','loc_ic_t2m_mou_7','loc_ic_t2m_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD')
+
+head(churnFeat1)
+
+```
+
+The bottom has a very high percentage of churn about 43%.
+
+##Local incoming telecom operator to a fixed line
+
+```{r}
+roamSamp <- scalerFun('loc_ic_t2f_mou_6','loc_ic_t2f_mou_7','loc_ic_t2f_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD')
+
+head(churnFeat1)
+
+```
+
+The bottom layer has the highest propensity for churn.
+
+## Local Incoming 
+
+```{r}
+roamSamp <- scalerFun('loc_ic_mou_6','loc_ic_mou_7','loc_ic_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD')
+
+head(churnFeat1)
+```
+
+The bottom 5000 which has the least standard deviation has the higher proportion of churn with 42%.
+
+## STD incoming within the same network
+
+```{r}
+
+roamSamp <- scalerFun('std_ic_t2t_mou_6','std_ic_t2t_mou_7','std_ic_t2t_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD','std_ic_t2t_SD')
+
+head(churnFeat1)
+
+```
+
+STD incoming dosent have much of a differentiation and the churn percentage is evenly distributed.
+
+## STD incoming within network from mobile of other operator
+
+```{r}
+roamSamp <- scalerFun('std_ic_t2m_mou_6','std_ic_t2m_mou_7','std_ic_t2m_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+roamSamp <- scalerFun('std_ic_t2t_mou_6','std_ic_t2t_mou_7','std_ic_t2t_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD','std_ic_t2t_SD','std_ic_t2m_SD')
+
+head(churnFeat1)
+
+```
+
+This is a parabolic distribution with the maximum propensity with the bottom band and high band. However the difference between bands is not that pronounced
+
+## STD incoming from fixed line to the operator
+
+```{r}
+roamSamp <- scalerFun('std_ic_t2f_mou_6','std_ic_t2f_mou_7','std_ic_t2f_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD','std_ic_t2t_SD','std_ic_t2m_SD','std_ic_t2f_SD')
+
+head(churnFeat1)
+```
+
+Not much of differentiation
+
+## Total STD incoming
+
+```{r}
+roamSamp <- scalerFun('std_ic_mou_6','std_ic_mou_7','std_ic_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD','std_ic_t2t_SD','std_ic_t2m_SD','std_ic_t2f_SD','std_ic_SD')
+
+head(churnFeat1)
+```
+
+A parabolic relationship with the bottom end having the maximum propensity of churn
+
+## Total incoming calls 
+
+```{r}
+roamSamp <- scalerFun('total_ic_mou_6','total_ic_mou_7','total_ic_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD','std_ic_t2t_SD','std_ic_t2m_SD','std_ic_t2f_SD','std_ic_SD','total_ic_SD')
+
+head(churnFeat1)
+
+```
+
+For total incoming the bottom 5000 has the heighest % of churn cases with almost 40%. This could be on the basis of the feature with 43% churn percentage
+
+## Special incoming
+
+```{r}
+
+roamSamp <- scalerFun('spl_ic_mou_6','spl_ic_mou_7','spl_ic_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD','std_ic_t2t_SD','std_ic_t2m_SD','std_ic_t2f_SD','std_ic_SD','total_ic_SD','spl_ic_SD')
+
+head(churnFeat1)
+
+
+```
+Nothing interesting going on here with the special calls.
+
+##
+
+```{r}
+roamSamp <- scalerFun('isd_ic_mou_6','isd_ic_mou_7','isd_ic_mou_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD','std_ic_t2t_SD','std_ic_t2m_SD','std_ic_t2f_SD','std_ic_SD','total_ic_SD','spl_ic_SD','isd_ic_SD')
+
+head(churnFeat1)
+
+```
+
+Nothing interesting going on here too
+
+## Other incoming
+
+```{r}
+roamSamp <- scalerFun('ic_others_6','ic_others_7','ic_others_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD','std_ic_t2t_SD','std_ic_t2m_SD','std_ic_t2f_SD','std_ic_SD','total_ic_SD','spl_ic_SD','isd_ic_SD','ic_others_SD')
+
+head(churnFeat1)
+
+```
+
+This is also not very promising feature
+
+## Total recharge numbers
+
+```{r}
+roamSamp <- scalerFun('total_rech_num_6','total_rech_num_7','total_rech_num_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD','std_ic_t2t_SD','std_ic_t2m_SD','std_ic_t2f_SD','std_ic_SD','total_ic_SD','spl_ic_SD','isd_ic_SD','ic_others_SD','total_rech_num_SD')
+
+head(churnFeat1)
+
+```
+The higher SD values have larger proportion of churn cases 26% compared to the other cases. 
+
+## Total recharge amount
+
+```{r}
+roamSamp <- scalerFun('total_rech_amt_6','total_rech_amt_7','total_rech_amt_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD','std_ic_t2t_SD','std_ic_t2m_SD','std_ic_t2f_SD','std_ic_SD','total_ic_SD','spl_ic_SD','isd_ic_SD','ic_others_SD','total_rech_num_SD','total_rech_amt_SD')
+
+head(churnFeat1)
+
+```
+
+The recharge amount has similar trend as recharge numbers
+
+## maximum recharge amount
+
+```{r}
+roamSamp <- scalerFun('max_rech_amt_6','max_rech_amt_7','max_rech_amt_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD','std_ic_t2t_SD','std_ic_t2m_SD','std_ic_t2f_SD','std_ic_SD','total_ic_SD','spl_ic_SD','isd_ic_SD','ic_others_SD','total_rech_num_SD','total_rech_amt_SD','max_rech_amt_SD')
+
+head(churnFeat1)
+
+```
+
+Not very pronounced trend here eventhough higher sd values band have higher percentage of churn cases.
+
+## last day recharge amount
+
+```{r}
+roamSamp <- scalerFun('last_day_rch_amt_6','last_day_rch_amt_7','last_day_rch_amt_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD','std_ic_t2t_SD','std_ic_t2m_SD','std_ic_t2f_SD','std_ic_SD','total_ic_SD','spl_ic_SD','isd_ic_SD','ic_others_SD','total_rech_num_SD','total_rech_amt_SD','max_rech_amt_SD','last_day_rch_amt_SD')
+
+head(churnFeat1)
+
+```
+
+Not a very informative feature
+
+## Total recharge data
+
+```{r}
+roamSamp <- scalerFun('total_rech_data_6','total_rech_data_7','total_rech_data_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD','std_ic_t2t_SD','std_ic_t2m_SD','std_ic_t2f_SD','std_ic_SD','total_ic_SD','spl_ic_SD','isd_ic_SD','ic_others_SD','total_rech_num_SD','total_rech_amt_SD','max_rech_amt_SD','last_day_rch_amt_SD','total_rech_data_SD')
+
+head(churnFeat1)
+
+
+```
+Not much informative features
+
+## Maximum recharge for data
+
+```{r}
+roamSamp <- scalerFun('max_rech_data_6','max_rech_data_7','max_rech_data_8')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD','std_ic_t2t_SD','std_ic_t2m_SD','std_ic_t2f_SD','std_ic_SD','total_ic_SD','spl_ic_SD','isd_ic_SD','ic_others_SD','total_rech_num_SD','total_rech_amt_SD','max_rech_amt_SD','last_day_rch_amt_SD','total_rech_data_SD','max_rech_data_SD')
+
+head(churnFeat1)
+
+
+```
+
+This strategy of standard deviation not very informative for these features
+
+## Count of 2g /3g recharge
+
+```{r}
+roamSamp <- scalerFun('jun_vbc_3g','jul_vbc_3g','aug_vbc_3g')
+roamSamp$df1
+roamSamp$val1
+roamSamp$val2
+roamSamp$val3
+roamSamp$val4
+roamSamp$val5
+roamSamp$val6
+roamSamp$val7
+roamSamp$val8
+roamSamp$val9
+roamSamp$val10
+
+churnFeat1 <- cbind(churnFeat1,roamSamp$df1$SD)
+
+colnames(churnFeat1) <- c('roam_ic_SD','roam_og_SD','loc_og_t2t_SD','loc_og_t2m_SD','loc_og_t2f_SD','loc_og_t2c_SD','loc_og_SD','std_og_t2t_SD','std_og_t2m_SD','std_og_t2f_SD','std_og_SD','isd_og_SD','spl_og_SD','og_others_SD','total_og_SD','loc_ic_t2t_SD','loc_ic_t2m_SD','loc_ic_t2f_SD','loc_ic_SD','std_ic_t2t_SD','std_ic_t2m_SD','std_ic_t2f_SD','std_ic_SD','total_ic_SD','spl_ic_SD','isd_ic_SD','ic_others_SD','total_rech_num_SD','total_rech_amt_SD','max_rech_amt_SD','last_day_rch_amt_SD','total_rech_data_SD','max_rech_data_SD','aug_vbc_SD')
+
+head(churnFeat1)
+
+```
+
+
+count_rech_2g_6 : Not informative 
+count_rech_3g_6 : Not informative 
+av_rech_amt_data_6
+vol_2g_mb_6 / 3g
+arpu_3g_8 / 2g
+night_pck_user_8
+
+
+
+
+
+
+
+
+
+
+```{r}
+churnData[1:10,]
+```
+
+
+
+
+## Using the new features to build a model
+
+```{r}
+
+
+# Adding the target variable with the new features
+
+churnFeat1$churn <- churnSamp2_tran$target
+head(churnFeat1)
+
+```
+# Let us spot check with different models
+
+```{r}
+library(caret)
+
+churnFeat1$churn <- factor(churnFeat1$churn)
+
+# 10 fold cross validation
+
+trainC <- trainControl(method='repeatedcv',number = 10,repeats = 3,classProbs = FALSE)
+
+metric  <- 'Accuracy'
+
+# Logistic Regression
+
+set.seed(123)
+
+fit.glm <- train(churn~.,data = churnFeat1,method='glm',metric='Accuracy',trControl=trainC)
+
+# GLMNET
+
+set.seed(123)
+
+fit.glmnet <- train(churn~.,data = churnFeat1,method='glmnet',metric=metric,trControl=trainC)
+
+# KNN
+
+set.seed(123)
+
+fit.knn <- train(churn~.,data = churnFeat1,method='knn',metric=metric,trControl=trainC)
+
+# CART
+
+set.seed(123)
+
+fit.cart <- train(churn~.,data = churnFeat1,method='rpart',metric=metric,trControl=trainC)
+
+# NB
+
+set.seed(123)
+
+fit.nb <- train(churn~.,data = churnFeat1,method='nb',metric=metric,trControl=trainC)
+
+# SVM
+
+set.seed(123)
+
+fit.svm <- train(churn~.,data = churnFeat1,method='svmRadial',metric=metric,trControl=trainC)
+
+# Bagged CART
+
+set.seed(123)
+
+fit.treebag <- train(churn~.,data = churnFeat1,method='treebag',metric=metric,trControl=trainC)
+
+# RF
+
+set.seed(123)
+
+fit.RF <- train(churn~.,data = churnFeat1,method='rf',metric=metric,trControl=trainC)
+
+# Stochastic Gradient boosting
+
+set.seed(123)
+
+fit.gbm <- train(churn~.,data = churnFeat1,method='gbm',metric=metric,trControl=trainC,verbose=FALSE)
+
+
+# Comparing algorithms
+
+results <- resamples(list(LG=fit.glm,Glmnet=fit.glmnet,KNN = fit.knn,CART=fit.cart,NB=fit.nb,BCART=fit.treebag,RF = fit.RF,GBM=fit.gbm))
+
+summary(results)
+
+dotPlot(results)
+
+
+```
+
+```{r}
+unique(churnFeat1$churn)
+```
+
+# Let us look at a benchmark model and check its accuracy rates
+
+```{r}
+head(numChurn)
+```
+
+Let us remove some unwanted columns and then prepare a train and test sets
+
+# List of columns where we impute zero in place of null values
+
+```{r}
+zero_impute = c('total_rech_data_6', 'total_rech_data_7', 'total_rech_data_8', 'total_rech_data_9',
+        'av_rech_amt_data_6', 'av_rech_amt_data_7', 'av_rech_amt_data_8', 'av_rech_amt_data_9',
+        'max_rech_data_6', 'max_rech_data_7', 'max_rech_data_8', 'max_rech_data_9')
+
+# Imputing the rows with na values with zero
+
+numChurn[is.na(numChurn),zero_impute] <- 0
+       
+```
+```{r}
+samp1 <- numChurn[,zero_impute]
+
+nrow(samp1)
+
+samp1[is.na(samp1),] <- 0 
+  
+  
+  
